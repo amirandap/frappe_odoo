@@ -8,6 +8,11 @@
         :timeline="analytics.data.timeline"
         :events="analytics.data.events"
       />
+      <OdooOrderTimeline
+        v-if="odooTimelineEvents.length"
+        :events="odooTimelineEvents"
+        :order-name="odooOrderName"
+      />
       <div class="grid items-start gap-4 lg:grid-cols-2">
         <ConversationSummary :summary="analytics.data.summary" />
         <AnalyticsMetricCards :metrics="analytics.data.metrics" />
@@ -35,11 +40,36 @@ import { Button, LoadingIndicator } from "frappe-ui";
 import { computed, inject, watch } from "vue";
 import AnalyticsMetricCards from "./AnalyticsMetricCards.vue";
 import ConversationSummary from "./ConversationSummary.vue";
+import OdooOrderTimeline, {
+  type OdooTimelineEvent,
+} from "./OdooOrderTimeline.vue";
 import TicketTimeline from "./TicketTimeline.vue";
 
 const ticket = inject(TicketSymbol)!;
 const ticketId = computed(() => String(ticket.value.doc.name));
 const analytics = computed(() => useTicket(ticketId.value).analytics);
+
+// custom_odoo_timeline_json: raw list of Odoo document events (state/field
+// changes read via XML-RPC from mail.message + mail.tracking.value), separate
+// from the SLA-shaped `events`/`timeline` the analytics endpoint returns —
+// those model conversation replies, not the underlying Odoo document history
+const odooTimelineEvents = computed<OdooTimelineEvent[]>(() => {
+  const raw = (ticket.value.doc as Record<string, unknown>)
+    .custom_odoo_timeline_json as string | undefined;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+});
+
+const odooOrderName = computed(
+  () =>
+    (ticket.value.doc as Record<string, unknown>)
+      .custom_odoo_order_name as string | undefined
+);
 
 // status and priority changes rewrite the SLA picture (hold, due dates), so
 // the analytics must refetch, not just on ticket switch
