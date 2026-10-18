@@ -34,20 +34,28 @@ Nueva activity `frappe_raw_ingest` encadenada en `gmail_history_sync`, después 
 pipeline de OC; sólo duplica el correo hacia Helpdesk.
 
 Parámetro adicional propuesto (pendiente en `ingest`): `meta` JSON opcional
-`{odoo_partner_id, odoo_order_id, odoo_order_name}` aplicado al ticket tras procesar.
+`{odoo_order_id, odoo_order_name, odoo_order_url}` aplicado al ticket tras procesar.
 
-## 3. Enlaces con Odoo en Frappe (pendiente)
+## 3. Enlaces con Odoo en Frappe (parcialmente pendiente)
 
-- `HD Customer.odoo_partner_id` (Int, único). Campo creado por patch de este repo.
-- `HD Ticket.odoo_order_id` (Int) y `HD Ticket.odoo_order_name` (Data). Sustituyen a los
-  custom fields creados a mano en el site (`custom_odoo_order_name`,
-  `custom_odoo_timeline_json`, LinkPair).
-- Resolución del cliente al ingresar: dominio del remitente → `HD Customer.domain`
-  (ya existe, `_set_customer_by_domain`) → `odoo_partner_id`.
+Ya existen en el site (exportados en `shared-inbox-eval/frappe-config/custom_fields.json`,
+no en este repo): `HD Ticket.custom_odoo_order_name`, `_order_url` (LinkPair),
+`_order_state`, `_order_date`, `_order_amount` y `_timeline_json`. **Se reutilizan**; no se
+crean campos paralelos.
+
+Pendiente:
+- `HD Customer.odoo_partner_id` (Int, único), creado por patch de este repo (hoy no existe).
+- Un `custom_odoo_order_id` (Int) en `HD Ticket` para el picker (hoy el id sólo va dentro
+  de la URL).
+- Resolución del cliente al ingresar: dominio del remitente → `HD Customer.domain` (ya
+  existe, `_set_customer_by_domain`) → `odoo_partner_id`.
+- Comentarios históricos `[Odoo chatter — …]` (6 notas del #0348, migradas como
+  `HD Ticket Comment`): el hook de `HDTicketComment` sólo convierte los nuevos; los
+  existentes necesitan un patch único (no ejecutado).
 
 ## 4. Picker de documentos de Odoo (pendiente)
 
-Backend: `helpdesk.api.odoo.search_documents(ticket, query="", doctypes=...)`.
+Backend: `helpdesk.api.odoo.search_documents(ticket, query="", doctypes=...)` (nuevo).
 Consulta Odoo por XML-RPC (`sale.order`, `account.move`) filtrado por
 `odoo_partner_id` del cliente del ticket, últimos N, más búsqueda por texto.
 Credenciales en `site_config` (no en el repo). Referencia del cliente:
@@ -57,4 +65,4 @@ Frontend:
 - Reply box: botón "Documentos de Odoo" con lista rápida de los últimos documentos del
   cliente; al elegir uno se inserta su referencia en el mensaje.
 - Sidebar del ticket: "Enlazar orden de Odoo" para el caso manual; escribe
-  `odoo_order_id`/`odoo_order_name`.
+  los `custom_odoo_order_*`.
