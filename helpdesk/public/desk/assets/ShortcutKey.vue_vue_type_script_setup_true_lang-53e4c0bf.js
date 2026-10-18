@@ -1,0 +1,2 @@
+import{d as c,e as i,h as e,j as t,F as p,A as l,L as u}from"./index-e0df1d24.js";const m={class:"inline-flex items-center gap-1"},_=c({__name:"ShortcutKey",props:{keys:{}},setup(s){const r=s,n=i(()=>r.keys.trim().split(/\s+/));return(d,x)=>(e(),t("span",m,[(e(!0),t(p,null,l(n.value,(a,o)=>(e(),t("kbd",{key:o,class:"flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-outline-gray-2 bg-surface-base px-1 pt-px text-xs text-ink-gray-5"},u(a),1))),128))]))}});export{_};
+//# sourceMappingURL=ShortcutKey.vue_vue_type_script_setup_true_lang-53e4c0bf.js.map

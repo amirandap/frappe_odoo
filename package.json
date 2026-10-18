@@ -1,9 +1,8 @@
 {
 	"private": true,
 	"scripts": {
-		"postinstall": "cd desk && yarn install",
 		"dev": "cd desk && yarn dev",
-		"build": "cd desk && yarn build"
+		"build": "echo 'frontend precompilado en vivaldi/prebuilt: no se compila en la imagen'"
 	},
 	"resolutions": {
 		"cheerio": "1.0.0-rc.12",

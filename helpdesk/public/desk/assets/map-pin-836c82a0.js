@@ -1,0 +1,2 @@
+import{W as r}from"./index-e0df1d24.js";const e={inheritAttrs:!1,render(){return r("svg",{xmlns:"http://www.w3.org/2000/svg",width:"24",height:"24",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor","stroke-width":"1.5","stroke-linecap":"round","stroke-linejoin":"round",...this.$attrs,innerHTML:'<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /><circle cx="12" cy="10" r="3" />'})}};export{e as L};
+//# sourceMappingURL=map-pin-836c82a0.js.map

@@ -1,0 +1,2 @@
+import{W as r}from"./index-e0df1d24.js";const e={inheritAttrs:!1,render(){return r("svg",{xmlns:"http://www.w3.org/2000/svg",width:"24",height:"24",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor","stroke-width":"1.5","stroke-linecap":"round","stroke-linejoin":"round",...this.$attrs,innerHTML:'<circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />'})}};export{e as L};
+//# sourceMappingURL=info-e4614612.js.map
