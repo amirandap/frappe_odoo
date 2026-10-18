@@ -6,7 +6,8 @@ Frappe, el mismo que usaría `EmailAccount.receive()`:
 
   - `InboundMail` parsea MIME: html > text, adjuntos, `cid:` -> URL del File,
     sanitiza el HTML, decodifica asunto/remitente/fecha.
-  - dedupe por Message-ID + Email Account (`is_exist_in_system`).
+  - dedupe de Received por Message-ID entre todos los buzones sólo-ingesta (un correo
+    en dos buzones es un solo ticket); de Sent, por Message-ID + Email Account.
   - hilo por In-Reply-To (+ References, ver `CustomInboundMail`).
   - crea el HD Ticket si el correo no tiene padre (`append_to`).
 
@@ -96,12 +97,35 @@ class RawInboundMail(CustomInboundMail):
 
         if not self.message_id:
             return None
+        accounts = self.email_account.name
+        if self.direction == "Received":
+            # El mismo correo llega a cada buzón al que iba dirigido; debe ser un solo ticket.
+            accounts = ["in", [*get_ingest_only_accounts(), self.email_account.name]]
         return Communication.find_one_by_filters(
             message_id=self.message_id,
-            email_account=self.email_account.name,
+            email_account=accounts,
             sent_or_received=self.direction,
             order_by="creation DESC",
         )
+
+
+def get_ingest_only_accounts() -> list[str]:
+    """Email Accounts que Frappe no consulta: sólo reciben lo que entrega `ingest`."""
+    return frappe.get_all("Email Account", {"enable_incoming": 0, "use_imap": 0}, pluck="name")
+
+
+def customer_payload(reference_doctype: str | None, reference_name: str | None) -> dict:
+    """`customer` y `odoo_partner_id` del ticket, para que el hub conozca el id de Odoo."""
+    if reference_doctype != APPEND_TO or not reference_name:
+        return {}
+    customer = frappe.db.get_value(APPEND_TO, reference_name, "customer")
+    if not customer:
+        return {}
+    payload = {"customer": customer}
+    partner_id = frappe.db.get_value("HD Customer", customer, "odoo_partner_id")
+    if partner_id:
+        payload["odoo_partner_id"] = partner_id
+    return payload
 
 
 def decode_raw(value: str | bytes) -> bytes:
@@ -214,6 +238,19 @@ def process_row(row, notify: bool = True) -> dict:
             _finish(row, "Skipped", reason="sent_sin_hilo")
             return {"status": "Skipped", "reason": "sent_sin_hilo"}
 
+        if row.direction == "Received":
+            merged = mail.is_exist_in_system()
+            if merged and merged.email_account != account.name:
+                _finish(row, "Skipped", merged, reason="fusionado_con_otro_buzon")
+                return {
+                    "status": "Duplicate",
+                    "of": "Processed",
+                    "communication": merged.name,
+                    "reference_doctype": merged.reference_doctype,
+                    "reference_name": merged.reference_name,
+                    **customer_payload(merged.reference_doctype, merged.reference_name),
+                }
+
         communication = mail.process()
         frappe.db.commit()
         is_new = bool(communication and mail.flags.get("is_new_communication"))
@@ -233,6 +270,7 @@ def process_row(row, notify: bool = True) -> dict:
             "reference_name": communication.reference_name,
             "is_new": is_new,
             "failed_attachments": mail.failed_attachments,
+            **customer_payload(communication.reference_doctype, communication.reference_name),
         }
     except SentEmailInInboxError:
         frappe.db.rollback()
@@ -304,6 +342,23 @@ def ingest(
     # el pipeline nativo deja msgprints internos (p.ej. "ticket por asunto no encontrado"); no son para el caller
     frappe.clear_messages()
     return result
+
+
+@frappe.whitelist(methods=["POST"])
+def sync_mailboxes(mailboxes: list[str]) -> list[dict]:
+    """POST /api/method/helpdesk.overrides.raw_ingest.sync_mailboxes
+
+    Asegura un Email Account sólo-ingesta por cada buzón que monitorea Temporal.
+    Idempotente; no borra cuentas que dejen de venir en la lista.
+    """
+    frappe.only_for("System Manager")
+    if isinstance(mailboxes, str):
+        mailboxes = frappe.parse_json(mailboxes)
+    if not isinstance(mailboxes, list):
+        frappe.throw(_("mailboxes debe ser una lista"))
+    seen = dict.fromkeys((m or "").strip().lower() for m in mailboxes)
+    accounts = [get_or_create_account(address) for address in seen]
+    return [{"name": a.name, "email_id": a.email_id} for a in accounts]
 
 
 @frappe.whitelist(methods=["POST"])
