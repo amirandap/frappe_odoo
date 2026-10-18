@@ -49,9 +49,14 @@ Pendiente:
   de la URL).
 - Resolución del cliente al ingresar: dominio del remitente → `HD Customer.domain` (ya
   existe, `_set_customer_by_domain`) → `odoo_partner_id`.
-- Comentarios históricos `[Odoo chatter — …]` (6 notas del #0348, migradas como
-  `HD Ticket Comment`): el hook de `HDTicketComment` sólo convierte los nuevos; los
-  existentes necesitan un patch único (no ejecutado).
+- **Chatter de Odoo como mensaje de sistema, no comentario ni Communication** (implementado):
+  - `POST /api/method/helpdesk.api.odoo.log_chatter` `{ticket, ref, body, author, when}`
+    (System Manager) crea una `HD Ticket Activity` "Odoo {ref} — {body} (por {author})" con la
+    fecha de Odoo. Idempotente por (ticket, texto, fecha): el sync puede reintentar.
+  - `HDTicketComment.after_insert`: si llega un comentario `[Odoo chatter — …]`, lo convierte
+    y lo borra (red de seguridad para quien aún escriba comentarios).
+  - Patch `convert_odoo_chatter_comments` convierte los comentarios históricos (6 del #0348)
+    al correr `bench migrate`.
 
 ## 4. Picker de documentos de Odoo (pendiente)
 

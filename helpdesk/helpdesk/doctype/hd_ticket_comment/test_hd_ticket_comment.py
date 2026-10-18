@@ -12,6 +12,9 @@ from helpdesk.helpdesk.doctype.hd_ticket_comment.hd_ticket_comment import (
     toggle_reaction,
 )
 from helpdesk.mixins.mentions import HasMentions
+from helpdesk.helpdesk.doctype.hd_ticket_activity.hd_ticket_activity import (
+    log_odoo_chatter,
+)
 from helpdesk.test_utils import add_comment, create_agent, make_ticket
 
 
@@ -434,6 +437,21 @@ class TestOdooChatterComment(FrappeTestCase):
             "Odoo S13142 — Sales Order creado (por Desarrollos Odoo)",
         )
         self.assertEqual(str(activity.creation), "2026-09-28 21:03:16")
+
+    def test_log_odoo_chatter_is_idempotent(self):
+        ticket = make_ticket()
+        args = (ticket.name, "S13142", "Sales Order creado", "Odoo", "2026-09-28 21:03:16")
+
+        first = log_odoo_chatter(*args)
+        second = log_odoo_chatter(*args)
+
+        self.assertEqual(first.name, second.name)
+        self.assertEqual(
+            frappe.db.count(
+                "HD Ticket Activity", {"ticket": ticket.name, "action": first.action}
+            ),
+            1,
+        )
 
     def test_regular_comment_is_kept(self):
         ticket = make_ticket()
