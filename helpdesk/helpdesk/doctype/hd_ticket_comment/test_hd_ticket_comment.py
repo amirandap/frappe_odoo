@@ -12,7 +12,7 @@ from helpdesk.helpdesk.doctype.hd_ticket_comment.hd_ticket_comment import (
     toggle_reaction,
 )
 from helpdesk.mixins.mentions import HasMentions
-from helpdesk.test_utils import create_agent
+from helpdesk.test_utils import add_comment, create_agent, make_ticket
 
 
 class TestHDTicketComment(FrappeTestCase):
@@ -414,3 +414,31 @@ class TestHDTicketComment(FrappeTestCase):
         self.assertEqual(notification.message, "2 people reacted to your comment")
 
         frappe.delete_doc("HD Notification", notification.name, force=True)
+
+
+class TestOdooChatterComment(FrappeTestCase):
+    def test_odoo_chatter_becomes_ticket_activity(self):
+        ticket = make_ticket()
+        content = (
+            "<p><em>[Odoo chatter — sale.order S13142, 2026-09-28 21:03:16, "
+            "por Desarrollos Odoo]</em></p><p>Sales Order creado</p>"
+        )
+        add_comment(ticket.name, content)
+
+        self.assertFalse(
+            frappe.db.exists("HD Ticket Comment", {"reference_ticket": ticket.name})
+        )
+        activity = frappe.get_last_doc("HD Ticket Activity", {"ticket": ticket.name})
+        self.assertEqual(
+            activity.action,
+            "Odoo S13142 — Sales Order creado (por Desarrollos Odoo)",
+        )
+        self.assertEqual(str(activity.creation), "2026-09-28 21:03:16")
+
+    def test_regular_comment_is_kept(self):
+        ticket = make_ticket()
+        add_comment(ticket.name, "<p>Hola</p>")
+
+        self.assertTrue(
+            frappe.db.exists("HD Ticket Comment", {"reference_ticket": ticket.name})
+        )
