@@ -11,6 +11,7 @@
   "customer_name",
   "customer_type",
   "domain",
+  "odoo_partner_id",
   "erpnext_customer",
   "country",
   "column_break_fead",
@@ -47,6 +48,15 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Domain"
+  },
+  {
+   "description": "partner_id of the matching Odoo contact. Uniqueness is enforced in the controller because an empty Int is stored as 0.",
+   "fieldname": "odoo_partner_id",
+   "fieldtype": "Int",
+   "in_standard_filter": 1,
+   "label": "Odoo Partner ID",
+   "non_negative": 1,
+   "search_index": 1
   },
   {
    "fieldname": "references_tab",

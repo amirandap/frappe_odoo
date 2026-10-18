@@ -70,6 +70,24 @@ class HDCustomer(Document):
 
     def validate(self):
         self.validate_contacts()
+        self.validate_odoo_partner_id()
+
+    def validate_odoo_partner_id(self):
+        # Int columns are NOT NULL DEFAULT 0, so `unique: 1` would make every customer
+        # without a partner collide on 0; uniqueness only applies to real ids.
+        if not self.odoo_partner_id:
+            return
+        other = frappe.db.get_value(
+            "HD Customer",
+            {"odoo_partner_id": self.odoo_partner_id, "name": ("!=", self.name)},
+        )
+        if other:
+            frappe.throw(
+                _("Odoo Partner ID {0} is already used by {1}").format(
+                    self.odoo_partner_id, other
+                ),
+                frappe.DuplicateEntryError,
+            )
 
     def validate_contacts(self):
         if not self.contacts:
