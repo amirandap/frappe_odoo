@@ -26,6 +26,16 @@ def _mail(msg_id, subject, sender, to, body, in_reply_to=None, html=None, inline
 
 
 class TestRawIngest(FrappeTestCase):
+    def tearDown(self):
+        # ingest_raw hace commit (como el receive() nativo), así que el rollback del test no limpia.
+        for t in frappe.get_all("HD Ticket", {"raised_by": ["like", "%@cliente.test"]}, pluck="name"):
+            frappe.delete_doc("HD Ticket", t, force=1)
+        for c in frappe.get_all("Communication", {"message_id": ["like", "%@x.test"]}, pluck="name"):
+            frappe.delete_doc("Communication", c, force=1, ignore_permissions=True)
+        for r in frappe.get_all("HD Raw Email", {"source_id": ["like", "rt-src-%"]}, pluck="name"):
+            frappe.delete_doc("HD Raw Email", r, force=1)
+        frappe.db.commit()
+
     def test_html_cid_thread_dedupe_and_sent(self):
         first = _mail(
             "rt1@x.test", "Pedido RT", "Ana <ana@cliente.test>", BOX, "hola",
