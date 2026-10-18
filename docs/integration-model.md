@@ -1,6 +1,6 @@
 # Modelo de integración: hub (vivaldi_webai) · Frappe Helpdesk · Odoo
 
-Estado: **diseño**. Complementa `docs/odoo-ingest-and-picker.md` (canal de ingesta y picker).
+Estado: ingesta, fusión de buzones y `odoo_partner_id` implementados; el resto es diseño. Complementa `docs/odoo-ingest-and-picker.md` (canal de ingesta y picker).
 
 ## Rol de cada pieza
 
@@ -36,7 +36,7 @@ Se reemplaza por el push a Frappe.
 | Entidad | Clave | Dónde vive el enlace |
 |---|---|---|
 | Correo ↔ ticket | `gmailMessageId` = `HD Raw Email.source_id` (y `Message-ID` RFC822) | tabla `frappe_ticket_links` en el hub |
-| Cliente | `HD Customer.odoo_partner_id` ↔ `partner_id` | campo nuevo en Frappe |
+| Cliente | `HD Customer.odoo_partner_id` ↔ `partner_id` | campo en Frappe; `ingest` lo devuelve al hub |
 | Documento | `custom_odoo_order_id` + `custom_odoo_order_*` | campos del ticket |
 
 ## Contratos (a construir)
@@ -65,15 +65,20 @@ Se reemplaza por el push a Frappe.
 
 ## Fases
 
-1. `frappe_raw_ingest` en el hub + `HD Customer.odoo_partner_id` + resolución por dominio.
+1. `frappe_raw_ingest` en el hub (Frappe: `odoo_partner_id` y resolución por dominio ya listos).
 2. `apply_outcome` + equipos/tags/vistas + patch de los chatter históricos (#0348).
 3. Feedback Frappe → hub (aprendizaje) y re-disparo de pipelines.
 4. Picker (gateway del hub) y enlace manual.
 5. Conciliación y alertas.
 
-## Pendiente de decidir
+## Decisiones tomadas
 
-- Salida de respuestas: SMTP/OAuth del buzón desde Frappe, o por el `gmail-client` del hub.
-  Un solo canal de salida evita mensajes duplicados al cliente.
-- Un mismo correo en dos buzones genera dos tickets (el dedupe de Frappe es Message-ID + cuenta).
-- Umbral de confianza para auto-asignar cola vs mandar a Triage.
+1. **Salida de respuestas:** por el `gmail-client` del hub; Frappe no usa SMTP. Un solo canal
+   evita mensajes duplicados al cliente.
+2. **Sin umbrales en Frappe:** lo que decide Temporal (tag, cola, confianza) es la verdad;
+   Frappe sólo aplica y muestra. Triage se usa por `outcome`, no por un umbral propio.
+3. **Un correo en dos buzones = un ticket:** Received se deduplica por Message-ID entre todos
+   los buzones sólo-ingesta; el segundo buzón queda como `HD Raw Email` `Skipped`
+   (`fusionado_con_otro_buzon`).
+4. **Un Email Account sólo-ingesta por buzón** monitoreado (`sync_mailboxes`); cada correo
+   cuelga de su Email Account.

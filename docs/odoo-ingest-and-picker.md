@@ -1,6 +1,7 @@
 # Ingesta de correo desde Temporal + enlaces con Odoo
 
-Estado: **diseño** (nada de esto, salvo `raw_ingest`, está implementado).
+Estado: ingesta, fusión entre buzones, `sync_mailboxes`, `HD Customer.odoo_partner_id` y chatter
+están implementados; el picker y `meta` del ticket siguen pendientes.
 
 ## Objetivo
 
@@ -23,9 +24,36 @@ Estado: **diseño** (nada de esto, salvo `raw_ingest`, está implementado).
 
 Auth: usuario de servicio con rol System Manager y API key.
 
-Sin duplicados por dos capas: `HD Raw Email.source_id` y `Message-ID` + Email Account
-(`is_exist_in_system`). Un correo enviado desde Helpdesk que vuelve por Sent se
-deduplica por Message-ID.
+### Buzones = Email Accounts sólo-ingesta
+
+Cada buzón que monitorea Temporal existe en Frappe como Email Account sin IMAP ni SMTP
+(`enable_incoming=0`, `use_imap=0`, `enable_outgoing=0`) y cada correo cuelga de él.
+`ingest` lo crea al vuelo; para aprovisionarlos de antemano:
+
+`POST /api/method/helpdesk.overrides.raw_ingest.sync_mailboxes` `{"mailboxes": ["a@x", "b@x"]}`
+(System Manager) -> `[{name, email_id}]`. Idempotente; no borra cuentas ausentes de la lista.
+
+### Sin duplicados ni tickets repetidos
+
+- `HD Raw Email.source_id`: reintentos del mismo mensaje del origen.
+- **Received**: `Message-ID` entre *todas* las cuentas sólo-ingesta. El mismo correo en dos
+  buzones es un solo ticket/Communication; el segundo `ingest` responde
+  `{status: "Duplicate", of: "Processed", communication, reference_*}` y su fila
+  `HD Raw Email` queda `Skipped` con `skip_reason = fusionado_con_otro_buzon`.
+- **Sent**: `Message-ID` + Email Account (un enviado desde Helpdesk que vuelve por Sent se
+  deduplica).
+
+### Resultado
+
+Se mantienen las claves anteriores (`status`, `communication`, `reference_*`, `is_new`,
+`failed_attachments`) y se añaden, cuando el ticket tiene cliente, `customer` (HD Customer) y
+`odoo_partner_id` (sólo si está definido), también en respuestas `Duplicate` por fusión.
+
+### Reglas de diseño
+
+- Frappe **no aplica umbrales** de confianza: la clasificación y la cola que decide Temporal
+  son la verdad.
+- Las respuestas salen por el `gmail-client` del hub; Frappe no usa SMTP.
 
 ## 2. Lado `vivaldi_webai` (Temporal)
 
@@ -43,12 +71,15 @@ no en este repo): `HD Ticket.custom_odoo_order_name`, `_order_url` (LinkPair),
 `_order_state`, `_order_date`, `_order_amount` y `_timeline_json`. **Se reutilizan**; no se
 crean campos paralelos.
 
+Implementado: `HD Customer.odoo_partner_id` (Int, "Odoo Partner ID"). La unicidad se valida en
+el controlador (`validate_odoo_partner_id`) y no con `unique: 1`, porque una columna Int vale 0
+y no NULL: todos los clientes sin id colisionarían. La resolución al ingresar es dominio del
+remitente -> `HD Customer.domain` (`_set_customer_by_domain`) -> `odoo_partner_id`, que se
+devuelve al hub en el resultado de `ingest`.
+
 Pendiente:
-- `HD Customer.odoo_partner_id` (Int, único), creado por patch de este repo (hoy no existe).
 - Un `custom_odoo_order_id` (Int) en `HD Ticket` para el picker (hoy el id sólo va dentro
   de la URL).
-- Resolución del cliente al ingresar: dominio del remitente → `HD Customer.domain` (ya
-  existe, `_set_customer_by_domain`) → `odoo_partner_id`.
 - **Chatter de Odoo como mensaje de sistema, no comentario ni Communication** (implementado):
   - `POST /api/method/helpdesk.api.odoo.log_chatter` `{ticket, ref, body, author, when}`
     (System Manager) crea una `HD Ticket Activity` "Odoo {ref} — {body} (por {author})" con la
