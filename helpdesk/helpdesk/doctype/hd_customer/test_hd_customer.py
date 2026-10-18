@@ -15,6 +15,7 @@ from helpdesk.test_utils import (
     create_customer,
     create_user,
     get_invitation,
+    make_hd_customer,
     make_ticket,
     update_role_in_customer,
 )
@@ -494,3 +495,20 @@ def cleanup_customer_and_contact(customer_name: str, email: str) -> None:
         frappe.delete_doc("User", email, force=True)
     for inv in frappe.db.get_all("User Invitation", {"email": email}, pluck="name"):
         frappe.delete_doc("User Invitation", inv, force=True)
+
+
+class TestHDCustomerOdooPartnerId(FrappeTestCase):
+    def tearDown(self):
+        for name in ("Odoo Uno", "Odoo Dos", "Odoo Tres"):
+            if frappe.db.exists("HD Customer", name):
+                frappe.delete_doc("HD Customer", name, force=True)
+
+    def test_partner_id_must_be_unique(self):
+        make_hd_customer("Odoo Uno", odoo_partner_id=777001)
+        with self.assertRaises(frappe.DuplicateEntryError):
+            make_hd_customer("Odoo Dos", odoo_partner_id=777001)
+
+    def test_empty_partner_id_is_not_unique_constrained(self):
+        make_hd_customer("Odoo Uno")
+        make_hd_customer("Odoo Dos")
+        make_hd_customer("Odoo Tres", odoo_partner_id=0)

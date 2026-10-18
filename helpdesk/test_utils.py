@@ -1,4 +1,6 @@
+import base64
 from datetime import datetime
+from email.message import EmailMessage
 
 import frappe
 from frappe.core.doctype.communication.test_communication import create_email_account
@@ -479,6 +481,48 @@ def create_customer(name, contacts=[]):
     for c in contacts:
         customer.append("contacts", c)
     return customer.insert()
+
+
+def make_hd_customer(name: str, domain: str | None = None, odoo_partner_id: int = 0):
+    """Create (replacing any previous one) an HD Customer matched by sender domain and, optionally, an Odoo partner id."""
+    if frappe.db.exists("HD Customer", name):
+        frappe.delete_doc("HD Customer", name, force=True)
+    return frappe.get_doc(
+        {
+            "doctype": "HD Customer",
+            "customer_name": name,
+            "domain": domain,
+            "odoo_partner_id": odoo_partner_id,
+        }
+    ).insert(ignore_permissions=True)
+
+
+PNG_1PX = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
+
+
+def make_raw_email(
+    msg_id: str,
+    subject: str,
+    sender: str,
+    to: str,
+    body: str,
+    in_reply_to: str | None = None,
+    html: str | None = None,
+    inline: bool = False,
+) -> bytes:
+    """Build an RFC822 message (bytes) with Message-ID `<msg_id>`, optional threading headers, HTML alternative and an inline cid:logo1 PNG."""
+    m = EmailMessage()
+    m["From"], m["To"], m["Subject"], m["Message-ID"] = sender, to, subject, f"<{msg_id}>"
+    if in_reply_to:
+        m["In-Reply-To"] = m["References"] = f"<{in_reply_to}>"
+    m.set_content(body)
+    if html:
+        m.add_alternative(html, subtype="html")
+        if inline:
+            m.get_payload()[1].add_related(PNG_1PX, "image", "png", cid="<logo1>", filename="logo.png")
+    return m.as_bytes()
 
 
 def create_user(email: str):
