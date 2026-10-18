@@ -658,24 +658,35 @@ def get_ticket_contact(ticket: str):
     frappe.has_permission("HD Ticket", "read", ticket, throw=True)
     if not frappe.db.exists("HD Ticket", ticket):
         return None
-    contact, raised_by = frappe.db.get_value(
-        "HD Ticket", ticket, ["contact", "raised_by"]
+    contact, raised_by, customer = frappe.db.get_value(
+        "HD Ticket", ticket, ["contact", "raised_by", "customer"]
     )
     if contact:
         data = frappe.db.get_value(
             "Contact",
             contact,
-            ["name", "email_id", "phone", "mobile_no", "image"],
+            [
+                "name",
+                "full_name",
+                "company_name",
+                "email_id",
+                "phone",
+                "mobile_no",
+                "image",
+            ],
             as_dict=1,
         )
     else:
         data = {
             "email_id": raised_by,
             "name": raised_by.split("@")[0],
+            "full_name": "",
+            "company_name": "",
             "phone": "",
             "mobile_no": "",
             "image": "",
         }
+    data["company_name"] = data.get("company_name") or customer or ""
     return data
 
 
