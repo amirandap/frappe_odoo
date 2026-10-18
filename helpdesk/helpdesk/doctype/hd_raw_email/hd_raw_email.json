@@ -1,0 +1,51 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-10-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_id",
+  "email_account",
+  "direction",
+  "status",
+  "column_break_1",
+  "message_id",
+  "received_at",
+  "raw_size",
+  "communication",
+  "section_break_1",
+  "skip_reason",
+  "error",
+  "raw_file"
+ ],
+ "fields": [
+  {"fieldname": "source_id", "fieldtype": "Data", "in_list_view": 1, "label": "Source ID", "reqd": 1, "unique": 1, "description": "Id estable del correo en el origen (p.ej. Gmail message id). Es la llave de idempotencia."},
+  {"fieldname": "email_account", "fieldtype": "Link", "in_list_view": 1, "label": "Email Account", "options": "Email Account", "in_standard_filter": 1},
+  {"default": "Received", "fieldname": "direction", "fieldtype": "Select", "label": "Direction", "options": "Received\nSent"},
+  {"default": "Pending", "fieldname": "status", "fieldtype": "Select", "in_list_view": 1, "in_standard_filter": 1, "label": "Status", "options": "Pending\nProcessed\nSkipped\nFailed"},
+  {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "message_id", "fieldtype": "Data", "label": "Message-ID", "search_index": 1},
+  {"fieldname": "received_at", "fieldtype": "Datetime", "label": "Received At"},
+  {"fieldname": "raw_size", "fieldtype": "Int", "label": "Raw Size (bytes)", "read_only": 1},
+  {"fieldname": "communication", "fieldtype": "Link", "label": "Communication", "options": "Communication", "read_only": 1},
+  {"fieldname": "section_break_1", "fieldtype": "Section Break"},
+  {"fieldname": "skip_reason", "fieldtype": "Data", "label": "Skip Reason", "read_only": 1},
+  {"fieldname": "error", "fieldtype": "Long Text", "label": "Error", "read_only": 1},
+  {"fieldname": "raw_file", "fieldtype": "Attach", "label": "Raw MIME (.eml)", "read_only": 1}
+ ],
+ "links": [],
+ "modified": "2026-10-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Helpdesk",
+ "name": "HD Raw Email",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {"read": 1, "report": 1, "role": "System Manager", "write": 1, "create": 1, "delete": 1},
+  {"read": 1, "report": 1, "role": "Agent Manager"}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

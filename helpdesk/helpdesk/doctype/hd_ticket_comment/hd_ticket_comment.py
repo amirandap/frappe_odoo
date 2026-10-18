@@ -1,14 +1,28 @@
 # Copyright (c) 2022, Frappe Technologies and contributors
 # For license information, please see license.txt
 
+import re
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import strip_html
 
+from helpdesk.helpdesk.doctype.hd_ticket_activity.hd_ticket_activity import (
+    log_ticket_activity,
+)
 from helpdesk.mixins.mentions import HasMentions
 from helpdesk.utils import capture_event, get_doc_room, publish_event
 
 PRESET_EMOJIS = ["👍", "👎", "❤️", "🎉", "👀", "✅"]
+
+# "[Odoo chatter — sale.order S13142, 2026-09-28 21:03:16, por Desarrollos Odoo] <body>"
+ODOO_CHATTER = re.compile(
+    r"^\s*\[Odoo chatter\s*[—-]\s*(?P<model>[\w.]+)\s+(?P<ref>[^,\]]+),"
+    r"\s*(?P<when>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\s*por\s+(?P<author>[^\]]+)\]"
+    r"\s*(?P<body>.*)$",
+    re.DOTALL,
+)
 
 
 class HDTicketComment(HasMentions, Document):
@@ -24,6 +38,8 @@ class HDTicketComment(HasMentions, Document):
             self.notify_mentions(original_content=original_content)
 
     def after_insert(self):
+        if self.move_odoo_chatter_to_activity():
+            return
         event = "helpdesk:ticket-comment"
         data = {"ticket_id": self.reference_ticket}
         telemetry_event = "comment_added"
@@ -36,6 +52,28 @@ class HDTicketComment(HasMentions, Document):
         )
         capture_event(telemetry_event)
         self.notify_mentions()
+
+    def move_odoo_chatter_to_activity(self) -> bool:
+        """Odoo chatter is a system event, not a conversation: show it in the
+        native activity timeline instead of as an agent comment."""
+        match = ODOO_CHATTER.match(strip_html(self.content or "").strip())
+        if not match:
+            return False
+
+        action = (
+            f"Odoo {match['ref'].strip()} — {match['body'].strip()}"
+            f" (por {match['author'].strip()})"
+        )
+        activity = log_ticket_activity(self.reference_ticket, action)
+        # Keep Odoo's own timestamp so the entry sorts where the event happened.
+        frappe.db.set_value(
+            "HD Ticket Activity",
+            activity.name,
+            {"creation": match["when"], "owner": self.owner},
+            update_modified=False,
+        )
+        frappe.delete_doc(self.doctype, self.name, force=True, ignore_permissions=True)
+        return True
 
     def after_delete(self):
         event = "helpdesk:ticket-comment"

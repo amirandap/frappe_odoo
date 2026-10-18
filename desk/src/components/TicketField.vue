@@ -156,6 +156,29 @@ const component = computed(() => {
       });
     }
     return h(Link, linkProps);
+  } else if (
+    props.field.fieldtype === "Data" &&
+    props.field.options === "LinkPair" &&
+    props.value
+  ) {
+    // paired label|href convention: a URL-typed Data field can carry its
+    // own display text before a literal | (e.g. an order number shown
+    // instead of the raw link) - falls back to the bare URL if absent
+    const raw = String(props.value);
+    const sep = raw.indexOf("|");
+    const linkLabel = sep === -1 ? raw : raw.slice(0, sep);
+    const linkHref = sep === -1 ? raw : raw.slice(sep + 1);
+    return h(
+      "a",
+      {
+        href: linkHref,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        class:
+          "form-control block truncate text-base text-ink-blue-3 underline hover:text-ink-blue-4",
+      },
+      linkLabel
+    );
   } else if (props.field.fieldtype === "Select") {
     return isSearchableSelect.value
       ? combobox(selectOptions.value)
